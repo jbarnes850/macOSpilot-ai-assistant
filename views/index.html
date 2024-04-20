@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>macOSpilot</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            font-size: 14px;
+        }
+        h1 {
+            color: #333;
+            font-size: 18px;
+        }
+        #analysis {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border: 1px solid #e1e1e1;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 12px;
+        }
+        .window-section {
+            background-color: #fff;
+            border: 1px solid #e1e1e1;
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .window-section h3 {
+            margin-top: 0;
+            color: #40005e;
+        }
+        .window-message {
+            color: #333;
+            padding-top: 2px;
+        }
+        .hidden {
+            display: none;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .modal-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            margin-left: 10px;
+        }
+        #api-key-input {
+            width: 50%;
+            margin-left: 10px;
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .modal-row {
+            display: flex;
+            align-items: center;
+            justify-content: start;
+        }
+    </style>
+</head>
+<body>
+    <div style="position: absolute; top: 5px; right: 5px">
+        <a href="#" id="settingsIcon">
+            <img src="./assets/settings-icon.png" width="25" height="25" style="opacity: 0.6"/>
+        </a>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h4>Input Method</h4>
+            <div class="modal-row">
+                <div>
+                    <input type="radio" id="inputMethodVoice" name="inputMethod" value="voice" checked/>
+                    <label for="inputMethodVoice">Voice</label>
+                </div>
+                <div>
+                    <input type="radio" id="inputMethodText" name="inputMethod" value="text"/>
+                    <label for="inputMethodText">Text</label>
+                </div>
+            </div>
+
+            <div class="modal-row">
+                <label for="api-key-input">OpenAI API-key:</label>
+                <input type="text" id="api-key-input" class="modal-api-key-input" placeholder="Enter API Key"/>
+            </div>
+            <div class="version-text">v0.2</div>
+        </div>
+      </div>
+    </div>
+    <div id="analysis"></div>
+    <script src="renderer.js"></script>
+    <script>
+      var modal = document.getElementById("settingsModal");
+      var btn = document.getElementById("settingsIcon");
+
+      btn.onclick = function () {
+        modal.style.display = "block";
+      };
+
+      // Get the <span> element that closes the modal
+      var span = document.getElementsByClassName("close")[0];
+      span.onclick = function () {
+        modal.style.display = "none";
+      };
+
+      window.onclick = function (event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+        }
+      };
+
+      const apiKeyInput = document.getElementById("api-key-input");
+
+      function maskApiKey(apiKey) {
+        if (apiKey.length <= 4) {
+          return apiKey; // If the key is too short, just return it
+        }
+        return "*".repeat(apiKey.length - 4) + apiKey.slice(-4);
+      }
+
+      apiKeyInput.addEventListener("input", () => {
+        const apiKey = apiKeyInput.value;
+        ipcRenderer.send("submit-api-key", apiKey); // Send the full API key to main process
+        apiKeyInput.value = maskApiKey(apiKey); // Mask the API key in the input field
+      });
+
+      ipcRenderer.send("request-api-key");
+
+      // Handle receiving the masked API key
+      ipcRenderer.on("send-api-key", (event, maskedApiKey) => {
+        apiKeyInput.value = maskedApiKey; // Display the masked API key
+      });
+
+      // Handle the toggle between input method radio buttons
+      document.getElementById("inputMethodVoice").addEventListener("change", (event) => {
+        if (event.target.checked) {
+          ipcRenderer.send("set-input-method", "voice");
+        }
+      });
+      document.getElementById("inputMethodText").addEventListener("change", (event) => {
+        if (event.target.checked) {
+          ipcRenderer.send("set-input-method", "text");
+        }
+      });
+
+      // On load, request the current input method
+      ipcRenderer.send("request-input-method");
+
+      // Handle receiving the current input method
+      ipcRenderer.on("send-input-method", (event, method) => {
+        if (method === "text") {
+          document.getElementById("inputMethodText").checked = true;
+        } else {
+          document.getElementById("inputMethodVoice").checked = true;
+        }
+      });
+    </script>
+  </body>
+</html>
+   
